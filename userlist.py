@@ -5,17 +5,18 @@ import os
 import re
 import os.path
 import config
-
+import matplotlib.pyplot as plt
+import pandas as pd
 
 class User:
 
     def __init__(self, name, password, database):
-    # The User is constructed with their name, password and database
+        # The User is constructed with their name, password and database
         self.name = name
         self.password = password
         self.database = database
         self.movie_count = self.movie_count_meth()
-    #API URL to retrieve movie data
+        # API URL to retrieve movie data
         self.url = config.api_url
         self.headers = {
             'x-rapidapi-host': config.api_host,
@@ -23,13 +24,11 @@ class User:
                         }
         self.rows = self.get_db_rows()
 
-
     def __str__(self):
         return f"The account of {self.name}"
 
-
     def movie_count_meth(self):
-    # Method to return number of movies in the database
+        # Method to return number of movies in the database
         con = sqlite3.connect(self.database)
         cur = con.cursor()
         try:
@@ -41,18 +40,16 @@ class User:
             print('Database empty!')
         con.close()
 
-
     def find_show(self, querystring):
-    # Search film API and return json data or -1 if not found
+        # Search film API and return json data or -1 if not found
         response = requests.request("GET", self.url, headers=self.headers, params=querystring)
         json_movies = response.json()
         if json_movies['Response'] == 'False':
             return -1
         return json_movies
 
-
     def detail_display(self, movie):
-    # Uses the IMDB ID found in the previous method, to retreive data from another API link and display details
+        # Uses the IMDB ID found in the previous method, to retreive data from another API link and display details
         querystring = {"i": movie, "r": "json", "plot": "full"}
         response = requests.request("GET", self.url, headers=self.headers, params=querystring)
         json_movie = response.json()
@@ -69,10 +66,9 @@ class User:
         if save_user == 'y':
             self.save_in_database(json_movie)
 
-
     def display_shows(self, shows):
-    # Takes the json data and displays a dynamic list of searched movies.
-    # A dynamic menu is then created for the user to choose
+        # Takes the json data and displays a dynamic list of searched movies.
+        # A dynamic menu is then created for the user to choose
         c = 0
         movie_id = []
         movie_name = []
@@ -109,9 +105,8 @@ class User:
                 print('Invalid entry, please try again.')
                 self.display_shows(shows)
 
-
-    def menu(self,qs):
-    # Checks if the querystring passed are correct and passes to another method to process if correct
+    def menu(self, qs):
+        # Checks if the querystring passed are correct and passes to another method to process if correct
         flag = True
         while flag:
             if qs == -1:
@@ -124,10 +119,9 @@ class User:
                 else:
                     self.display_shows(shows)
 
-
     def user_input(self):
-    # One of the main menus once user record established. User now chooses to go back,
-    # or to display their movies saved in db, look up a movie's details or quit
+        # One of the main menus once user record established. User now chooses to go back,
+        # or to display their movies saved in db, look up a movie's details or quit
         print()
         choice = input("""Please select from the following: 
         s - switch user
@@ -176,7 +170,7 @@ class User:
 
 
     def get_db_rows(self):
-    # Class method to return rows from db or -1 if empty
+        # Class method to return rows from db or -1 if empty
         con = sqlite3.connect(self.database)
         cur = con.cursor()
         try:
@@ -188,9 +182,8 @@ class User:
         con.close()
         return self.rows
 
-
     def display_db_movie_list(self):
-    # Displays number in list and then an enumerated dynamic list of user's movies
+        # Displays number in list and then an enumerated dynamic list of user's movies
         list_len = len(self.rows)
         if list_len == 0:
             print("Database empty!")
@@ -206,12 +199,12 @@ class User:
                 print(f"{i + 1}). {row[0]}, ({row[1]}) - Director: {row[5]},  Genre: {row[3]}, Runtime: {row[2]}")
         print()
         db_choice = input(
-"""Please choose from the following:
-d) Detailed movie view
-e) Erase movie
-s) Score statistics
-b) Back
-""")
+            """Please choose from the following:
+            d) Detailed movie view
+            e) Erase movie
+            s) Score statistics
+            b) Back
+            """)
         movie_name_list = [row[0] for row in self.rows]
 
         if db_choice == 'b':
@@ -220,7 +213,7 @@ b) Back
             try:
                 movie_index = int(input('Enter number of movie to get more detail: ').strip())
             except ValueError:
-                print('Please type the correct number.')
+                print('Please type a valid number.')
                 self.display_db_movie_list()
             if (movie_index - 1) <= len(movie_name_list):
                 movie_choice = movie_name_list[movie_index - 1]
@@ -245,9 +238,8 @@ b) Back
             print('Invalid selection')
             self.display_db_movie_list()
 
-
     def display_db_movie_detail(self, name):
-    # Displays more details of the user's movies in their db
+        # Displays more details of the user's movies in their db
         for row in self.rows:
             if row[0] == name:
                 print(f"""
@@ -259,60 +251,115 @@ b) Back
                 Plot: {row[6]}
                 """)
 
-
     def rating_lists(self):
-    # Statistics using the scores from the movie in the database.
+        # Statistics using the scores from the movie in the database.
         if len(self.rows) == 0:
             print('No movies in the database to review.')
             self.display_db_movie_list()
         else:
             imdb = []
-            imdb_movies = []
             metascore = []
-            metascore_movies = []
-
+            movie_dict = {}
+            movies = []
+            # Create dictionary where movie:{imdb, metascore} from the user db
             for row in self.rows:
-                imdb.append(row[8])
-                imdb_movies.append(row[0])
-                metascore.append(row[7])
-                metascore_movies.append(row[0])
+                movie_dict[row[0]] = {
+                    'imdb': row[8],
+                    'metascore': row[7]
+                }
 
+            # From dict populate lists for the scores and movie titles. I could have done this in the previous loop
+            # but I wanted to practice looping through dicts
+            for movie, reviews in movie_dict.items():
+                movies.append(movie)
+                for reviewer, score in reviews.items():
+                    if reviewer == 'imdb':
+                        imdb.append(score)
+                    elif reviewer == 'metascore':
+                        metascore.append(score)
+
+            # Finding highest score for each reviewer and movie title
             max_imdb = max(imdb)
-            max_imdb_index = imdb.index(max_imdb)
-            max_imdb_movie = imdb_movies[max_imdb_index]
-
-            min_imdb = min(imdb)
-            min_imdb_index = imdb.index(min_imdb)
-            min_imdb_movie = imdb_movies[min_imdb_index]
-
+            max_imdb_movie = movies[imdb.index(max_imdb)]
             max_metascore = max(metascore)
-            max_metascore_index = metascore.index(max_metascore)
-            max_metascore_movie = metascore_movies[max_metascore_index]
+            max_metascore_movie = movies[metascore.index(max_metascore)]
 
+            # Finding lowest score for each reviewer and movie title
+            min_imdb = min(imdb)
+            min_imdb_movie = movies[imdb.index(min_imdb)]
             min_metascore = min(metascore)
-            min_metascore_index = metascore.index(min_metascore)
-            min_metascore_movie = metascore_movies[min_metascore_index]
+            min_metascore_movie = movies[metascore.index(min_metascore)]
 
+            # Calculating variables for use in later averages
             sum_imdb = sum(imdb)
             sum_metascore = sum(metascore)
             len_imdb = len(imdb)
             len_metascore = len(metascore)
 
+            # Use list comp to create a new IMDB list with el multiplied by 10
+            imdb_score_st = [score * 10 for score in imdb]
+
+            # Create a simple plot to show the scores against movie titles
+            plt.plot(movies, imdb_score_st, c='r', label='IMDB')
+            plt.plot(movies, metascore, c='b', label='Metascore')
+            plt.xticks(rotation=45)
+            plt.xlabel('Movies')
+            plt.ylabel('Scores (%)')
+            plt.legend()
+            plt.title('Comparing IMDB and Metascore review scores for each movie.')
+            plt.show()
+
+            # Create a pandas dataframe for practice
+            data = {'Movie': movies, 'IMDB': imdb_score_st, 'Metascore': metascore}
+            df = pd.DataFrame(data)
+
+            # Create new series of the differences between the review score cols
+            difference = abs(df['IMDB'] - df['Metascore'])
+
+            # Create and us bools to determine which column has the most higher scores
+            dif_bool_m = df['IMDB'] < df['Metascore']
+            dif_bool_i = df['IMDB'] > df['Metascore']
+            dif_i = df[dif_bool_i]
+            dif_m = df[dif_bool_m]
+
+            # Display the above findings to the user in a verbose way
+            print()
             print('         IMDB Movie Review Scores')
             print(f'There are {len_imdb} scores with an average of {sum_imdb/len_imdb}')
-            print(f'The highest score is {max_imdb} for {max_imdb_movie}')
-            print(f'The lowest score is {min_imdb} for {min_imdb_movie}')
+            print(f'Highest scoring show is {max_imdb_movie} with a score of {max_imdb}')
+            print(f'lowest scoring show is {min_imdb_movie} with a score of {min_imdb}')
             print()
             print('      Metascores Movie Review Scores')
             print(f'There are {len_metascore} scores with an average of {sum_metascore/len_metascore}')
-            print(f'The highest score is {max_metascore} for {max_metascore_movie}')
-            print(f'The lowest score is {min_metascore} for {min_metascore_movie}')
+            print(f'Highest scoring show is {max_metascore_movie} with a score of {max_metascore}')
+            print(f'Lowest scoring show is {min_metascore_movie} with a score of {min_metascore}')
             print()
+            print('As the two Websites score the shows with different scales, to compare them, I have multiplied the '
+                  'IMDB scores by 10.')
+            print()
+            print(df)
+            print()
+            print('Now with standardised scores, I can now compare both score lists:')
+            print()
+            print(f'The average difference between the sites for all the shows is {difference.mean()}')
+            print()
+
+            # Conditionals to determine the higher reviewer count
+            if len(dif_i) < len(dif_m):
+                reviewer_high = 'Metascore'
+            elif len(dif_i) == len(dif_m):
+                reviewer_high = 'o'
+            else:
+                reviewer_high = 'IMDB'
+
+            if reviewer_high == 'o':
+                print('Both Review Sites have an equal amount of higher rated shows than the other.')
+            else:
+                print(f'{reviewer_high} have given higher scores to more shows - {len(dif_m)}/{len_imdb}.')
         self.display_db_movie_list()
 
-
     def save_in_database(self, json_data):
-    # Once film is looked up in detail, option to save that film in the user db.
+        # Once film is looked up in detail, option to save that film in the user db.
         title = json_data['Title'].title()
         # Goes through the json dataset and extracts information if it is available
         if json_data['Year'] != 'N/A':
@@ -357,9 +404,8 @@ b) Back
         else:
             print("Show already found. No update made.")
 
-
     def deleteRecord(self, movie):
-    # Deletes the movie from the user's db
+        # Deletes the movie from the user's db
         try:
             conn = sqlite3.connect(self.database)
             cur = conn.cursor()
@@ -373,7 +419,6 @@ b) Back
             print("Movie deleted successfully ")
         except sqlite3.Error as error:
             print("Failed to delete movie from database", error)
-
 
     # ========================CSV========================================================
 
@@ -417,7 +462,7 @@ def create_user(name):
 def password_validator(pw):
     flag = 0
     while True:
-        if (len(pw) < 6):
+        if len(pw) < 6:
             flag = -1
             break
         elif not re.search("[a-z]", pw):
@@ -473,11 +518,11 @@ def delete_user_details(user_name, path='userlist.csv'):
 def user_menu():
     # Main menu for the application
     user_main = input(
-"""Welcome, please select from the following:
-a) Add/Select User
-l) List Users
-q) Quit 
-""")
+    """Welcome, please select from the following:
+    a) Add/Select User
+    l) List Users
+    q) Quit 
+    """)
     if user_main == 'l':
         list_users()
         user_menu()
@@ -507,10 +552,11 @@ q) Quit
             flag = True
             while flag:
                 user_db_choice = input(
-"""b) Back
-c) Continue
-d) Delete User
-""").lower().strip()
+        """
+        b) Back
+        c) Continue
+        d) Delete User
+        """).lower().strip()
                 if user_db_choice == 'd':
                     delete_user_details(user_name)
                     user_menu()
@@ -549,7 +595,7 @@ def list_users():
     with open('userlist.csv', 'r') as f:
         rows = csv.reader(f)
         rows = list(rows)[1:]
-        if rows == []:
+        if not rows:
             print("There are no records available.")
         else:
             print('User List')
