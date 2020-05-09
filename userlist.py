@@ -132,17 +132,17 @@ class User:
         if choice == 'l':
             name = input('Film: ')
             if name == 'q' or name == '':
-                self.menu()
+                self.user_input()
             year = input('If year known or type 0 if not: ')
             if year == '0' or "":
                 year = ""
             if name == 'q':
-                self.menu()
+                self.user_input()
             type_show = input('Type of show: movie, series, episode or type 0 if not: ')
             if type_show == '0' or "":
                 type_show = ""
             if name == 'q':
-                self.menu()
+                self.user_input()
             querystring = {
                 "page": "1",
                 "y": year,
@@ -168,10 +168,9 @@ class User:
 
 # ================== Database =======================================================
 
-
     def get_db_rows(self):
         # Class method to return rows from db or -1 if empty
-        con = sqlite3.connect(self.database)
+        con = sqlite3.connect('johnmoviesdb.db')
         cur = con.cursor()
         try:
             cur.execute('SELECT * FROM MovieInfo')
@@ -248,7 +247,8 @@ class User:
                 Genre: {row[3]},
                 Runtime: {row[2]},
                 Type: {row[4]},
-                Plot: {row[6]}
+                Plot: {row[6]},
+                Country: {row[7]}
                 """)
 
     def rating_lists(self):
@@ -261,22 +261,32 @@ class User:
             metascore = []
             movie_dict = {}
             movies = []
-            # Create dictionary where movie:{imdb, metascore} from the user db
+            countries = []
+            directors = []
+            genres = []
+            show_type = []
+
+            # Create dictionary from the user db
             for row in self.rows:
                 movie_dict[row[0]] = {
-                    'imdb': row[8],
-                    'metascore': row[7]
+                    'Genre': row[3],
+                    'Show Type': row[4],
+                    'Director': row[5],
+                    'Country': row[7],
+                    'imdb': row[9],
+                    'metascore': row[8]
                 }
 
             # From dict populate lists for the scores and movie titles. I could have done this in the previous loop
             # but I wanted to practice looping through dicts
-            for movie, reviews in movie_dict.items():
+            for movie, v in movie_dict.items():
                 movies.append(movie)
-                for reviewer, score in reviews.items():
-                    if reviewer == 'imdb':
-                        imdb.append(score)
-                    elif reviewer == 'metascore':
-                        metascore.append(score)
+                imdb.append(v['imdb'])
+                metascore.append(v['metascore'])
+                countries.append(v['Country'])
+                directors.append(v['Director'])
+                genres.append(v['Genre'])
+                show_type.append(v['Show Type'])
 
             # Finding highest score for each reviewer and movie title
             max_imdb = max(imdb)
@@ -302,25 +312,57 @@ class User:
             # Create a simple plot to show the scores against movie titles
             plt.plot(movies, imdb_score_st, c='r', label='IMDB')
             plt.plot(movies, metascore, c='b', label='Metascore')
-            plt.xticks(rotation=45)
+            plt.xticks(rotation=90)
             plt.xlabel('Movies')
             plt.ylabel('Scores (%)')
             plt.legend()
             plt.title('Comparing IMDB and Metascore review scores for each movie.')
-            plt.show()
+            # plt.show()
 
             # Create a pandas dataframe for practice
             data = {'Movie': movies, 'IMDB': imdb_score_st, 'Metascore': metascore}
             df = pd.DataFrame(data)
 
+            full_data = {'Movie': movies,
+                         'Director': directors,
+                         'Genre': genres,
+                         'Show_Type': show_type,
+                         'Country': countries,
+                         'IMDB': imdb_score_st,
+                         'Metascore': metascore
+                         }
+            dfull = pd.DataFrame(full_data)
+
+            print(dfull)
+
             # Create new series of the differences between the review score cols
             difference = abs(df['IMDB'] - df['Metascore'])
 
-            # Create and us bools to determine which column has the most higher scores
-            dif_bool_m = df['IMDB'] < df['Metascore']
-            dif_bool_i = df['IMDB'] > df['Metascore']
-            dif_i = df[dif_bool_i]
-            dif_m = df[dif_bool_m]
+            # Create bools to determine which column has the most higher scores
+            dif_i = df[df['IMDB'] < df['Metascore']]
+            dif_m = df[df['IMDB'] > df['Metascore']]
+
+            # Count the shows by country and save the number and country
+            country_count = {}
+            for c in dfull['Country']:
+                c_l = c.split(',')
+                for i in c_l:
+                    i = i.strip()
+                    if i in country_count:
+                        country_count[i] += 1
+                    else:
+                        country_count[i] = 1
+
+            # Count the amount of occurences, list and work out max
+            country_most_name = []
+            country_most_amount = []
+
+            for k,v in country_count.items():
+                country_most_name.append(k)
+                country_most_amount.append(v)
+
+            country_most_name_max = max(country_most_amount)
+            country_most_name = country_most_name[country_most_amount.index(country_most_name_max)]
 
             # Display the above findings to the user in a verbose way
             print()
@@ -333,11 +375,15 @@ class User:
             print(f'There are {len_metascore} scores with an average of {sum_metascore/len_metascore}')
             print(f'Highest scoring show is {max_metascore_movie} with a score of {max_metascore}')
             print(f'Lowest scoring show is {min_metascore_movie} with a score of {min_metascore}')
+            print('==================================================')
+
             print()
             print('As the two Websites score the shows with different scales, to compare them, I have multiplied the '
                   'IMDB scores by 10.')
             print()
             print(df)
+            print('==================================================')
+
             print()
             print('Now with standardised scores, I can now compare both score lists:')
             print()
@@ -347,16 +393,45 @@ class User:
             # Conditionals to determine the higher reviewer count
             if len(dif_i) < len(dif_m):
                 reviewer_high = 'Metascore'
+                mlen = len(dif_m)
             elif len(dif_i) == len(dif_m):
                 reviewer_high = 'o'
             else:
                 reviewer_high = 'IMDB'
+                mlen = len(dif_i)
 
             if reviewer_high == 'o':
                 print('Both Review Sites have an equal amount of higher rated shows than the other.')
             else:
-                print(f'{reviewer_high} have given higher scores to more shows - {len(dif_m)}/{len_imdb}.')
-        self.display_db_movie_list()
+                print(f'{reviewer_high} have given higher scores to more shows - {mlen}/{len_imdb}.')
+
+            print('==================================================')
+
+            print(f"{country_most_name} has produced the most shows in your collection with {country_most_name_max}")
+            print()
+
+            director_count = dfull['Director'].value_counts()
+
+            print('==================================================')
+
+            # Count the shows by director and save the number and director
+            # Count the total number of unique directors
+            if director_count[0] > director_count[1]:
+                one_director = dfull['Director'].value_counts()[:].index.tolist()[0]
+                one_director_amount = dfull['Director'].value_counts()[0]
+                if one_director_amount == 1:
+                    print(f'{one_director} is your most popular director with {one_director_amount} show')
+                else:
+                    print(f'{one_director} is your most popular director with {one_director_amount} shows')
+
+            if director_count[0] == director_count[1]:
+                two_director = dfull['Director'].value_counts()[:1].index.tolist()[0]
+                two_director_amount = dfull['Director'].value_counts()[:1][0]
+                if two_director_amount == 1:
+                    print(f'{two_director} is your most popular director with {two_director_amount} show')
+                else:
+                    print(f'{two_director} is your most popular director with {two_director_amount} shows')
+            self.display_db_movie_list()
 
     def save_in_database(self, json_data):
         # Once film is looked up in detail, option to save that film in the user db.
@@ -369,11 +444,13 @@ class User:
         if json_data['Genre'] != 'N/A':
             genre = json_data['Genre']
         if json_data['Type'] != 'N/A':
-            type = json_data['Type']
+            show_type = json_data['Type']
         if json_data['Director'] != 'N/A':
             director = json_data['Director']
         if json_data['Plot'] != 'N/A':
             plot = json_data['Plot']
+        if json_data['Country'] != 'N/A':
+            country = json_data['Country']
         if json_data['Metascore'] != 'N/A':
             metascore = float(json_data['Metascore'])
         else:
@@ -386,15 +463,15 @@ class User:
         cur = conn.cursor()
         # SQL commands
         cur.execute('''CREATE TABLE IF NOT EXISTS MovieInfo 
-        (Title TEXT, Year INTEGER, Runtime TEXT, Genre TEXT, Type TEXT, Director TEXT, Plot TEXT, Metascore REAL, IMDBRating REAL)''')
+        (Title TEXT, Year INTEGER, Runtime TEXT, Genre TEXT, Show_Type TEXT, Director TEXT, Plot TEXT,Country TEXT, Metascore REAL, IMDBRating REAL)''')
 
         cur.execute('SELECT Title FROM MovieInfo WHERE Title = ? ', (title,))
         row = cur.fetchone()
 
         if row is None:
-            cur.execute('''INSERT INTO MovieInfo (Title, Year, Runtime, Genre, Type, Director, Plot, Metascore, IMDBRating)
-                    VALUES (?,?,?,?,?,?,?,?,?)''',
-                        (title, year, runtime, genre, type, director, plot, metascore, imdb_rating))
+            cur.execute('''INSERT INTO MovieInfo (Title, Year, Runtime, Genre, Show_Type, Director, Plot, Country, Metascore, IMDBRating)
+                    VALUES (?,?,?,?,?,?,?,?,?,?)''',
+                        (title, year, runtime, genre, show_type, director, plot, country, metascore, imdb_rating))
             print("Save successful!")
             # Commits the change and close the connection to the database
             conn.commit()
@@ -618,3 +695,4 @@ def check_user(name):
 
 
 user_menu()
+# rating_lists()
