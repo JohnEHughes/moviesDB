@@ -1,11 +1,11 @@
 import sqlite3
 from requests import request
-import csv
 import os
 from re import search
 import os.path
 import config
 import stats
+import csv
 
 
 class User:
@@ -18,7 +18,7 @@ class User:
         self.movie_count = self.movie_count_meth()
         # API URL to retrieve movie data
         self.url = config.api_url
-        self.headers = config.api_header
+        self.headers = config.headers
         self.rows = self.get_db_rows()
 
     def __str__(self):
@@ -161,7 +161,6 @@ class User:
         else:
             print('Invalid choice, please enter l, d or q ')
             self.user_input()
-
 
 # ================== Database =======================================================
 
@@ -312,7 +311,7 @@ class User:
         except sqlite3.Error as error:
             print("Failed to delete movie from database", error)
 
-    # ========================CSV========================================================
+# ========================CSV========================================================
 
 
 def create_user(name):
@@ -323,13 +322,13 @@ def create_user(name):
 
         while True:
             print(
-    """A strong password is needed, please ensure the below:
-    - Minimum 6 characters.
-    - The alphabets must be between [a-z]
-    - At least one alphabet should be of Upper Case [A-Z]
-    - At least 1 number or digit between [0-9].
-    - At least 1 character from [ _ or @ or $ or ? or ! or & or *].
-    """)
+                """A strong password is needed, please ensure the below:
+                - Minimum 6 characters.
+                - The alphabets must be between [a-z]
+                - At least one alphabet should be of Upper Case [A-Z]
+                - At least 1 number or digit between [0-9].
+                - At least 1 character from [ _ or @ or $ or ? or ! or & or *].
+                """)
             create_pw = input('Please enter a password: ').strip()
             if password_validator(create_pw):
                 break
@@ -378,6 +377,17 @@ def password_validator(pw):
         print("Not a Valid Password")
 
 
+def password_checker(name):
+    # Retrieves password and db names from CSV file
+    with open('userlist.csv', 'r') as f:
+        rows = csv.reader(f)
+        for row in rows:
+            if row[0] == name:
+                password = row[1]
+                db = row[2]
+                return password, db
+
+
 def record_user(data, path):
     # Sub method used in create_user method
     with open(path, "a+", newline='') as f:
@@ -410,11 +420,11 @@ def delete_user_details(user_name, path='userlist.csv'):
 def user_menu():
     # Main menu for the application
     user_main = input(
-    """Welcome, please select from the following:
-    a) Add/Select User
-    l) List Users
-    q) Quit 
-    """)
+        """Welcome, please select from the following:
+        a) Add/Select User
+        l) List Users
+        q) Quit 
+        """)
     if user_main == 'l':
         list_users()
         user_menu()
@@ -444,11 +454,11 @@ def user_menu():
             flag = True
             while flag:
                 user_db_choice = input(
-        """
-        b) Back
-        c) Continue
-        d) Delete User
-        """).lower().strip()
+                    """
+                    b) Back
+                    c) Continue
+                    d) Delete User
+                    """).lower().strip()
                 if user_db_choice == 'd':
                     delete_user_details(user_name)
                     user_menu()
@@ -469,17 +479,6 @@ def user_menu():
     else:
         print('Invalid input')
         user_menu()
-
-
-def password_checker(name):
-    # Retrieves password and db names from CSV file
-    with open('userlist.csv', 'r') as f:
-        rows = csv.reader(f)
-        for row in rows:
-            if row[0] == name:
-                password = row[1]
-                db = row[2]
-                return password, db
 
 
 def list_users():

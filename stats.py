@@ -72,11 +72,8 @@ def rating_lists(rows):
         print()
         print('==================================================')
 
-
         # Use list comp to create a new IMDB list with el multiplied by 10
         imdb_score_st = [score * 10 for score in imdb]
-
-
 
         # Create a pandas dataframe for practice
         data = {'Movie': movies, 'IMDB': imdb_score_st, 'Metascore': metascore}
@@ -156,11 +153,9 @@ def rating_lists(rows):
         print()
         print(f"{country_most_name} has produced the most shows in your collection with {country_most_name_max}")
         print()
-
-        director_count = dfull['Director'].value_counts()
-
         print('==================================================')
         print()
+        director_count = dfull['Director'].value_counts()
 
         # Count the shows by director and save the number and director
         # Count the total number of unique directors
